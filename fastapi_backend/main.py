@@ -111,13 +111,19 @@ async def predict(
     min_note_length: float = Form(58.0),
     midi_tempo: int = Form(0),
 ):
-    log_info(f"Incoming prediction for file: {file.filename}")
+    log_info(f"--- Processing Request: {file.filename} ---")
     file_id = str(uuid.uuid4())
     input_filename = f"{file_id}_{file.filename}"
     input_path = os.path.join(UPLOAD_DIR, input_filename)
     
-    with open(input_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    log_info(f"Saving uploaded file to: {input_path}")
+    try:
+        with open(input_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        log_info("File saved successfully")
+    except Exception as e:
+        log_info(f"FILE SAVE ERROR: {e}")
+        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
     
     bpm_error = None
     midi_path = None
@@ -125,10 +131,11 @@ async def predict(
     try:
         final_tempo = midi_tempo
         if final_tempo <= 0:
+            log_info("Starting tempo auto-detection...")
             try:
                 import librosa
-                log_info("Running tempo detection...")
-                y, sr = librosa.load(input_path, sr=None, duration=60)
+                # Use a shorter duration for faster detection
+                y, sr = librosa.load(input_path, sr=None, duration=30)
                 tempo_arr, _ = librosa.beat.beat_track(y=y, sr=sr)
                 if hasattr(tempo_arr, 'item'):
                     tempo = tempo_arr.item()
@@ -137,13 +144,13 @@ async def predict(
                 else:
                     tempo = tempo_arr
                 final_tempo = int(round(float(tempo)))
-                log_info(f"Detected tempo: {final_tempo}")
+                log_info(f"Tempo detected: {final_tempo} BPM")
             except Exception as e:
                 log_info(f"Tempo detection failed: {e}")
                 bpm_error = str(e)
                 final_tempo = 120
 
-        log_info(f"Starting predict_and_save with model: {MODEL_PATH}")
+        log_info(f"Entering core prediction (model={MODEL_PATH})...")
         predict_and_save(
             audio_path_list=[input_path],
             output_directory=OUTPUT_DIR,
@@ -157,6 +164,7 @@ async def predict(
             minimum_note_length=min_note_length,
             midi_tempo=final_tempo
         )
+        log_info("Core prediction completed successfully")
         
         base_name = os.path.splitext(input_filename)[0]
         midi_filename = f"{base_name}_basic_pitch.mid"
