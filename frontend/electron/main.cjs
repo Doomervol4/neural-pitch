@@ -59,6 +59,11 @@ function startBackend() {
     if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });
     if (!fs.existsSync(outputsPath)) fs.mkdirSync(outputsPath, { recursive: true });
 
+    if (!fs.existsSync(backendPath)) {
+        console.error(`Backend executable NOT found at: ${backendPath}`);
+        return;
+    }
+
     backendProcess = spawn(backendPath, [], {
         env: {
             ...process.env,
@@ -97,10 +102,11 @@ function createWindow() {
         }
     });
 
-    const startUrl = isDev
-        ? (process.env.ELECTRON_START_URL || 'http://localhost:5173')
-        : `file://${path.join(__dirname, '../dist/index.html')}`;
-    mainWindow.loadURL(startUrl);
+    if (isDev) {
+        mainWindow.loadURL(process.env.ELECTRON_START_URL || 'http://localhost:5173');
+    } else {
+        mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    }
 }
 
 app.whenReady().then(() => {
