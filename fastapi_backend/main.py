@@ -11,6 +11,13 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+# FORCE EXPLICIT MULTIPART IMPORT (To help PyInstaller)
+try:
+    import multipart
+    from multipart.multipart import parse_options_header
+except ImportError:
+    pass
+
 # Setup basic logging immediately in AppData
 if sys.platform == "win32":
     base_log_folder = os.environ.get("APPDATA", os.path.expanduser("~"))
@@ -26,6 +33,7 @@ def log_info(msg):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] {msg}\n")
+            f.flush() # Force write to disk
         print(msg)
     except:
         pass
@@ -34,7 +42,6 @@ log_info("--- Neural Pitch Backend Starting ---")
 log_info(f"Python: {sys.version}")
 log_info(f"Log Path: {log_path}")
 log_info(f"CWD: {os.getcwd()}")
-log_info(f"Resources: {getattr(sys, 'resourcesPath', 'N/A')}")
 log_info(f"MEIPASS: {getattr(sys, '_MEIPASS', 'N/A')}")
 
 # Try to import heavy modules
@@ -60,6 +67,19 @@ log_info(f"Model Path: {MODEL_PATH}")
 
 app = FastAPI()
 
+# EARLY REQUEST LOGGING MIDDLEWARE
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    log_info(f"Incoming: {request.method} {request.url.path}")
+    try:
+        response = await call_next(request)
+        log_info(f"Outgoing: {request.url.path} Status: {response.status_code}")
+        return response
+    except Exception as e:
+        err = traceback.format_exc()
+        log_info(f"MIDDLEWARE CRASH: {err}")
+        return JSONResponse(status_code=500, content={"detail": str(e), "traceback": err})
+
 # Middleware to catch ALL errors and return JSON
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -71,6 +91,9 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 # Folders configuration
+UPLOAD_DIR = os.environ.get("NP_UPLOAD_DIR", "uploads")
+OUTPUT_DIR = os.environ.get("NP_OUTPUT_DIR", "outputs")
+
 def clear_directory(directory):
     if os.path.exists(directory):
         for filename in os.listdir(directory):
@@ -101,7 +124,11 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "Neural Pitch API is running"}
+    return {"status": "ok", "message": "Neural Pitch API is running"}
+
+@app.get("/health")
+def health():
+    return {"status": "healthy", "timestamp": datetime.datetime.now().isoformat()}
 
 @app.post("/predict")
 async def predict(
@@ -111,19 +138,14 @@ async def predict(
     min_note_length: float = Form(58.0),
     midi_tempo: int = Form(0),
 ):
-    log_info(f"--- Processing Request: {file.filename} ---")
+    log_info(f"--- START PREDICTION: {file.filename} ---")
     file_id = str(uuid.uuid4())
     input_filename = f"{file_id}_{file.filename}"
     input_path = os.path.join(UPLOAD_DIR, input_filename)
     
-    log_info(f"Saving uploaded file to: {input_path}")
-    try:
-        with open(input_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        log_info("File saved successfully")
-    except Exception as e:
-        log_info(f"FILE SAVE ERROR: {e}")
-        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
+    log_info(f"Saving to: {input_path}")
+    with open(input_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
     
     bpm_error = None
     midi_path = None
@@ -131,10 +153,9 @@ async def predict(
     try:
         final_tempo = midi_tempo
         if final_tempo <= 0:
-            log_info("Starting tempo auto-detection...")
             try:
                 import librosa
-                # Use a shorter duration for faster detection
+                log_info("Detecting tempo...")
                 y, sr = librosa.load(input_path, sr=None, duration=30)
                 tempo_arr, _ = librosa.beat.beat_track(y=y, sr=sr)
                 if hasattr(tempo_arr, 'item'):
@@ -144,13 +165,13 @@ async def predict(
                 else:
                     tempo = tempo_arr
                 final_tempo = int(round(float(tempo)))
-                log_info(f"Tempo detected: {final_tempo} BPM")
+                log_info(f"Tempo: {final_tempo}")
             except Exception as e:
-                log_info(f"Tempo detection failed: {e}")
+                log_info(f"Tempo error: {e}")
                 bpm_error = str(e)
                 final_tempo = 120
 
-        log_info(f"Entering core prediction (model={MODEL_PATH})...")
+        log_info(f"Running Basic Pitch core...")
         predict_and_save(
             audio_path_list=[input_path],
             output_directory=OUTPUT_DIR,
@@ -164,17 +185,16 @@ async def predict(
             minimum_note_length=min_note_length,
             midi_tempo=final_tempo
         )
-        log_info("Core prediction completed successfully")
         
         base_name = os.path.splitext(input_filename)[0]
         midi_filename = f"{base_name}_basic_pitch.mid"
         midi_path = os.path.join(OUTPUT_DIR, midi_filename)
         
         if not os.path.exists(midi_path):
-             log_info("MIDI file NOT found after prediction")
+             log_info("Error: MIDI file missing after processing")
              raise HTTPException(status_code=500, detail="MIDI generation failed")
              
-        log_info(f"Successfully generated MIDI: {midi_path}")
+        log_info(f"Success: {midi_path}")
         abs_path = os.path.abspath(midi_path)
         headers = {
             "X-Detected-Bpm": str(final_tempo),
@@ -197,5 +217,5 @@ async def predict(
                 pass
 
 if __name__ == "__main__":
-    log_info("Starting server on 127.0.0.1:8000")
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    log_info("Starting FastAPI/Uvicorn...")
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
