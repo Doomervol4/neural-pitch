@@ -96,8 +96,15 @@ function App() {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Conversion failed');
+        const text = await response.text();
+        let detail = 'Conversion failed';
+        try {
+          const json = JSON.parse(text);
+          detail = json.detail || json.traceback || detail;
+        } catch (e) {
+          detail = text.slice(0, 200) || 'Internal Server Error';
+        }
+        throw new Error(detail);
       }
 
       // Check for auto-detected BPM header
