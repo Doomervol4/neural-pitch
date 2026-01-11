@@ -1,0 +1,82 @@
+{
+  "name": "neural-pitch",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Neural Pitch - AI Audio to MIDI Converter",
+  "author": "Doomervol4",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Doomervol4/neural-pitch.git"
+  },
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "api": "cd ../fastapi_backend && cross-env PYTHONIOENCODING=utf-8 venv\\Scripts\\python.exe -m uvicorn main:app --reload --port 8000",
+    "electron": "concurrently -k -n \"API,REACT,ELECTRON\" -c \"blue,green,yellow\" \"npm run api\" \"cross-env BROWSER=none npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:dev": "npm run electron",
+    "build": "vite build",
+    "electron:build": "npm run build && electron-builder --publish never",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "html-midi-player": "^1.6.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "autoprefixer": "^10.4.23",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^39.2.7",
+    "electron-builder": "^25.1.8",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "vite": "^7.2.4",
+    "wait-on": "^9.0.3"
+  },
+  "build": {
+    "appId": "com.doomervol4.neuralpitch",
+    "productName": "Neural Pitch",
+    "extraResources": [
+      {
+        "from": "../fastapi_backend/dist/",
+        "to": "backend",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "!electron/icon.png"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "electron/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "electron/icon.png",
+      "category": "public.app-category.music"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "electron/icon.png",
+      "category": "Audio"
+    }
+  }
+}

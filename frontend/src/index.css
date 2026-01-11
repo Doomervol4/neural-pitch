@@ -1,0 +1,240 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 300;
+
+  /* Bioscience Theme */
+  --bg-primary: #030303;
+  --bg-secondary: #0a0a0a;
+  --accent-primary: #00f2aa;
+  /* Biological Green/Teal */
+  --accent-secondary: #4f46e5;
+  /* Deep Indigo */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+
+  color-scheme: dark;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  background-image:
+    linear-gradient(var(--border-subtle) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+  background-size: 60px 60px;
+  background-position: 0 0;
+  animation: gridMove 60s linear infinite;
+  overflow: hidden;
+  /* Prevent blob scrollbars */
+  position: relative;
+}
+
+@keyframes gridMove {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 120px 60px;
+  }
+}
+
+/* Moving Blobs Background */
+.bg-blobs {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, var(--accent-primary) 0%, transparent 70%);
+  filter: blur(100px);
+  opacity: 0.15;
+  border-radius: 50%;
+  animation: move 20s infinite alternate cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+.blob-1 {
+  top: -10%;
+  left: -10%;
+  background: radial-gradient(circle, var(--accent-primary) 0%, transparent 70%);
+}
+
+.blob-2 {
+  bottom: -10%;
+  right: -10%;
+  background: radial-gradient(circle, var(--accent-secondary) 0%, transparent 70%);
+  animation-duration: 25s;
+  animation-delay: -5s;
+}
+
+.blob-3 {
+  top: 20%;
+  right: 15%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, #ff00ff 0%, transparent 70%);
+  opacity: 0.05;
+  animation-duration: 30s;
+  animation-delay: -2s;
+}
+
+@keyframes move {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+
+  to {
+    transform: translate(100px, 50px) scale(1.1);
+  }
+}
+
+/* Subtle vignette */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 0%, #030303 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* MIDI Player - Technical Style */
+midi-player {
+  --midi-player-bg: #0a0a0a;
+  --midi-player-fg: #ffffff;
+  --midi-player-border: #222;
+  --midi-player-accent: #00f2aa;
+  display: block;
+  width: 100%;
+  margin-bottom: 2rem;
+  font-family: 'Outfit', monospace;
+}
+
+midi-player::part(control-panel) {
+  background: #0a0a0a;
+  border-radius: 4px;
+  /* Sharper corners */
+  border: 1px solid #333;
+  box-shadow: none;
+}
+
+/* MIDI Visualizer Customization */
+midi-visualizer::part(keyboard) {
+  display: none !important;
+}
+
+midi-visualizer::part(piano-roll-notes) {
+  background: transparent !important;
+}
+
+/* Style the built-in playhead */
+midi-visualizer {
+  --midi-visualizer-playhead-color: rgb(52, 211, 153);
+  --playing-line-color: rgb(52, 211, 153);
+}
+
+midi-visualizer::part(playhead),
+midi-visualizer::part(playing-line) {
+  background-color: rgb(52, 211, 153) !important;
+  filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.8));
+  width: 2px !important;
+}
+
+midi-player::part(play-button) {
+  color: #fff;
+  border-radius: 2px;
+}
+
+midi-player::part(play-button):hover {
+  color: var(--accent-primary);
+}
+
+midi-player::part(time) {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+}
+
+midi-player::part(progress-bar) {
+  --webkit-progress-value: var(--accent-primary);
+  height: 4px;
+  border-radius: 2px;
+}
+
+/* VISUALIZER STYLING - High Contrast Lab Data */
+midi-visualizer {
+  background: #050505 !important;
+  border-radius: 4px;
+  border: 1px solid #222;
+}
+
+midi-visualizer svg rect.note {
+  fill: #00f2aa !important;
+  /* Emerald for all notes */
+  opacity: 0.4;
+  /* Lower opacity for inactive */
+  stroke: none;
+  shape-rendering: crispEdges;
+}
+
+midi-visualizer svg rect.note.active {
+  fill: var(--accent-primary) !important;
+  /* Bright Teal active */
+  stroke: #fff;
+  stroke-width: 1px;
+  filter: drop-shadow(0 0 8px var(--accent-primary));
+}
+
+/* Scrollbar styles - Minimal */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: #030303;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Custom inputs */
+input[type=range] {
+  border-radius: 2px;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  border-radius: 2px;
+  /* Square thumbs */
+}

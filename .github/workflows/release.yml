@@ -1,0 +1,86 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install System Dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install libsndfile ffmpeg
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      # Build Python Backend
+      - name: Install Python dependencies
+        run: |
+          cd fastapi_backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Bundle backend with PyInstaller (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd fastapi_backend
+          $BP_PATH = $(python -c "import basic_pitch; import os; print(os.path.dirname(basic_pitch.__file__))")
+          python -m PyInstaller --onefile --name neural-pitch-backend --add-data "${BP_PATH};basic_pitch" main.py
+      
+      - name: Bundle backend with PyInstaller (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd fastapi_backend
+          BP_PATH=$(python -c "import basic_pitch; import os; print(os.path.dirname(basic_pitch.__file__))")
+          python -m PyInstaller --onefile --name neural-pitch-backend --add-data "${BP_PATH}:basic_pitch" main.py
+      
+      # Build Electron Frontend
+      - name: Install Node dependencies
+        run: |
+          cd frontend
+          npm install
+      
+      - name: Build React and Electron App
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd frontend
+          npm run electron:build
+      
+      # Upload artifacts
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            frontend/dist/*.exe
+            frontend/dist/*.dmg
+            frontend/dist/*.zip
+            frontend/dist/*.AppImage
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

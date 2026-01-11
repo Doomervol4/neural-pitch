@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+python-multipart
+basic-pitch
+librosa
+numpy<2.0.0
+pyinstaller
