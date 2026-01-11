@@ -48,13 +48,13 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           cd fastapi_backend
-          python -m PyInstaller --onedir --name neural-pitch-backend --collect-all basic_pitch --collect-all uvicorn --hidden-import tensorflow --hidden-import pkg_resources --hidden-import python-multipart --hidden-import multipart --clean main.py
+          python -m PyInstaller --onedir --name neural-pitch-backend --collect-all basic_pitch --collect-all uvicorn --collect-all librosa --hidden-import tensorflow --hidden-import pkg_resources --hidden-import multipart --noconfirm main.py
       
       - name: Bundle backend with PyInstaller (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           cd fastapi_backend
-          python -m PyInstaller --onedir --name neural-pitch-backend --collect-all basic_pitch --collect-all uvicorn --hidden-import tensorflow --hidden-import pkg_resources --hidden-import python-multipart --hidden-import multipart --clean main.py
+          python -m PyInstaller --onedir --name neural-pitch-backend --collect-all basic_pitch --collect-all uvicorn --collect-all librosa --hidden-import tensorflow --hidden-import pkg_resources --hidden-import multipart --noconfirm main.py
       
       # Build Electron Frontend
       - name: Install Node dependencies

@@ -2,7 +2,7 @@
 echo Starting Basic Pitch App...
 
 :: Start Backend
-start "Basic Pitch Backend" cmd /k "cd fastapi_backend && venv\Scripts\activate && uvicorn main:app --reload --port 8001"
+start "Basic Pitch Backend" cmd /k "cd fastapi_backend && venv\Scripts\activate && uvicorn main:app --reload --port 8009"
 
 :: Start Frontend
 start "Basic Pitch Frontend" cmd /k "cd frontend && npm run dev"

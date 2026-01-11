@@ -3,7 +3,7 @@ import UploadZone from './components/UploadZone';
 import 'html-midi-player';
 
 function App() {
-  const [status, setStatus] = useState('idle'); // idle, uploading, processing, success, error
+  const [status, setStatus] = useState('booting'); // booting, idle, uploading, processing, success, error
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [staticUrl, setStaticUrl] = useState(null);
   const [absolutePath, setAbsolutePath] = useState(null); // For Electron native drag
@@ -53,6 +53,28 @@ function App() {
     };
   }, [downloadUrl]);
 
+  // Polling for engine readiness
+  useEffect(() => {
+    let interval;
+    if (status === 'booting') {
+      interval = setInterval(async () => {
+        try {
+          const resp = await fetch('http://127.0.0.1:8009/health');
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.status === 'ok') {
+              setStatus('idle');
+              clearInterval(interval);
+            }
+          }
+        } catch (e) {
+          // Engine still starting...
+        }
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [status]);
+
 
   const handleFileSelect = (file) => {
     setSelectedFile(file);
@@ -73,6 +95,7 @@ function App() {
 
   const processFile = async (file, currentParams) => {
     setStatus('processing');
+    if (window.electron) window.electron.log(`Processing start: ${file.name}`);
     setDownloadUrl(null);
     setErrorMsg('');
     setDuration(0);
@@ -88,7 +111,7 @@ function App() {
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/predict', {
+      const response = await fetch('http://127.0.0.1:8009/predict', {
         method: 'POST',
         body: formData,
         signal: controller.signal
@@ -137,9 +160,26 @@ function App() {
       setDownloadUrl(url);
       setStatus('success');
     } catch (err) {
+      if (window.electron) window.electron.log(`Fetch Error: ${err.message}`);
       console.error(err);
       setErrorMsg(err.message || 'Something went wrong');
       setStatus('error');
+    }
+  };
+
+  const testConnection = async () => {
+    if (window.electron) window.electron.log('Testing connection from UI...');
+    try {
+      const resp = await fetch('http://127.0.0.1:8009/health');
+      const data = await resp.json();
+      if (data.status === 'ok') {
+        alert("Succès ! Le moteur répond (v" + data.version + ")");
+      } else {
+        alert("Réponse inattendue : " + JSON.stringify(data));
+      }
+    } catch (err) {
+      if (window.electron) window.electron.log(`Conn Test Error: ${err.message}`);
+      alert("Erreur de liaison : " + err.message + "\nAssurez-vous que le moteur est bien lancé sur le port 8009.");
     }
   };
 
@@ -181,6 +221,7 @@ function App() {
           <div className={`${status === 'success' ? 'lg:col-span-3' : ''} flex flex-col gap-6`}>
             <div className="mb-4">
               <h2 className="text-4xl font-light leading-tight">
+                {status === 'booting' && "Neural Engine Initializing."}
                 {status === 'idle' && "Audio to MIDI Transformation."}
                 {status === 'processing' && "Topology Analysis."}
                 {status === 'success' && "Analysis Complete."}
@@ -194,6 +235,18 @@ function App() {
               <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-emerald-500"></div>
               <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-emerald-500"></div>
               <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-emerald-500"></div>
+
+              {status === 'booting' && (
+                <div className="h-48 flex flex-col items-center justify-center space-y-6">
+                  <div className="relative w-16 h-16">
+                    <div className="absolute inset-0 border-2 border-emerald-500/10 rounded-full"></div>
+                    <div className="absolute inset-0 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <div className="text-[10px] font-mono text-emerald-500/50 uppercase tracking-[0.2em] animate-pulse">
+                    Loading Neural Weights...
+                  </div>
+                </div>
+              )}
 
               {status === 'idle' && <UploadZone onFileSelect={handleFileSelect} />}
 
@@ -298,7 +351,10 @@ function App() {
                 <div className="py-8 text-center space-y-4">
                   <div className="text-red-500 font-mono text-xs uppercase tracking-widest border border-red-500/20 inline-block px-3 py-1">System Error</div>
                   <p className="text-white/50 text-sm">{errorMsg}</p>
-                  <button onClick={() => setStatus('idle')} className="text-xs font-bold underline hover:text-emerald-400 uppercase tracking-widest">Reset</button>
+                  <div className="flex justify-center gap-4">
+                    <button onClick={() => setStatus('idle')} className="text-xs font-bold underline hover:text-emerald-400 uppercase tracking-widest">Reset</button>
+                    <button onClick={testConnection} className="text-xs font-bold underline hover:text-emerald-500 uppercase tracking-widest">Test Link</button>
+                  </div>
                 </div>
               )}
             </div>

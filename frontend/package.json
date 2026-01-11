@@ -61,8 +61,7 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*",
-      "!electron/icon.png"
+      "electron/**/*"
     ],
     "win": {
       "target": "nsis",
