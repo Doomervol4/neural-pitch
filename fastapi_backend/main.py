@@ -32,6 +32,19 @@ app = FastAPI()
 UPLOAD_DIR = os.environ.get("NP_UPLOAD_DIR", "uploads")
 OUTPUT_DIR = os.environ.get("NP_OUTPUT_DIR", "outputs")
 
+# Setup startup log
+log_path = os.path.join(os.path.dirname(UPLOAD_DIR), "backend.log")
+def log_info(msg):
+    with open(log_path, "a") as f:
+        f.write(f"{msg}\n")
+    print(msg)
+
+log_info("--- Neural Pitch Backend Starting ---")
+log_info(f"Python version: {sys.version}")
+log_info(f"Executable: {sys.executable}")
+log_info(f"Uploads: {UPLOAD_DIR}")
+log_info(f"Outputs: {OUTPUT_DIR}")
+
 def clear_directory(directory):
     if os.path.exists(directory):
         for filename in os.listdir(directory):

@@ -49,7 +49,7 @@
     "productName": "Neural Pitch",
     "extraResources": [
       {
-        "from": "../fastapi_backend/dist/",
+        "from": "../fastapi_backend/dist/neural-pitch-backend/",
         "to": "backend",
         "filter": [
           "**/*"
