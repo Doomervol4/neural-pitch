@@ -2,7 +2,7 @@ fastapi
 uvicorn
 python-multipart
 basic-pitch
-tensorflow-cpu
+tensorflow
 librosa
 numpy<2.0.0
 pyinstaller
