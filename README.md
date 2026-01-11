@@ -1,6 +1,14 @@
-# Neural Pitch 🎹
+<p align="center">
+  <img src="assets/logo.png" width="128" height="128" alt="Neural Pitch Logo">
+</p>
 
-Desktop app for converting audio to MIDI using Spotify's Basic Pitch model.
+<h1 align="center">Neural Pitch</h1>
+
+<p align="center">
+  Desktop application for converting audio to MIDI using Spotify's Basic Pitch model.
+</p>
+
+<br>
 
 ## Download
 
