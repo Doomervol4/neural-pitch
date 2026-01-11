@@ -1,13 +1,29 @@
+import os
+import shutil
+import uuid
+import asyncio
+import sys
+import uvicorn
+
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from basic_pitch.inference import predict_and_save
 from basic_pitch import ICASSP_2022_MODEL_PATH
-import os
-import shutil
-import uuid
-
 from fastapi.staticfiles import StaticFiles
+
+# Handle PyInstaller paths
+def get_resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+# Correct model path for PyInstaller
+MODEL_PATH = get_resource_path("basic_pitch/model_output") if hasattr(sys, '_MEIPASS') else ICASSP_2022_MODEL_PATH
 
 app = FastAPI()
 
@@ -116,7 +132,7 @@ async def predict(
             sonify_midi=False,
             save_model_outputs=False,
             save_notes=False,
-            model_or_model_path=ICASSP_2022_MODEL_PATH,
+            model_or_model_path=MODEL_PATH,
             onset_threshold=onset_threshold,
             frame_threshold=frame_threshold,
             minimum_note_length=min_note_length,
@@ -160,3 +176,7 @@ async def predict(
                 print(f"Immediate cleanup: Removed input {input_path}")
             except Exception as e:
                 print(f"Input cleanup error: {e}")
+
+if __name__ == "__main__":
+    # Start the server
+    uvicorn.run(app, host="127.0.0.1", port=8000)

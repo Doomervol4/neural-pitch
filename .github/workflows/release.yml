@@ -48,15 +48,13 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           cd fastapi_backend
-          $BP_PATH = $(python -c "import basic_pitch; import os; print(os.path.dirname(basic_pitch.__file__))")
-          python -m PyInstaller --onefile --name neural-pitch-backend --add-data "${BP_PATH};basic_pitch" main.py
+          python -m PyInstaller --onefile --name neural-pitch-backend --collect-all basic_pitch --hidden-import tensorflow --hidden-import pkg_resources main.py
       
       - name: Bundle backend with PyInstaller (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           cd fastapi_backend
-          BP_PATH=$(python -c "import basic_pitch; import os; print(os.path.dirname(basic_pitch.__file__))")
-          python -m PyInstaller --onefile --name neural-pitch-backend --add-data "${BP_PATH}:basic_pitch" main.py
+          python -m PyInstaller --onefile --name neural-pitch-backend --collect-all basic_pitch --hidden-import tensorflow --hidden-import pkg_resources main.py
       
       # Build Electron Frontend
       - name: Install Node dependencies
