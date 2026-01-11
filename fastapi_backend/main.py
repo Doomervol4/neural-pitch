@@ -1,22 +1,46 @@
 import os
-import shutil
-import uuid
-import asyncio
 import sys
-import uvicorn
+import datetime
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-from basic_pitch.inference import predict_and_save
-from basic_pitch import ICASSP_2022_MODEL_PATH
-from fastapi.staticfiles import StaticFiles
+# Move logging to the absolute top to catch any import errors
+UPLOAD_DIR = os.environ.get("NP_UPLOAD_DIR", "uploads")
+log_path = os.path.join(os.path.dirname(os.path.abspath(UPLOAD_DIR)), "backend.log")
+
+def log_info(msg):
+    try:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(log_path, "a") as f:
+            f.write(f"[{timestamp}] {msg}\n")
+        print(msg)
+    except:
+        pass
+
+log_info("--- Neural Pitch Backend Booting ---")
+log_info(f"Python: {sys.version}")
+log_info(f"Env NP_UPLOAD_DIR: {UPLOAD_DIR}")
+
+try:
+    import shutil
+    import uuid
+    import asyncio
+    import uvicorn
+    from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+    from fastapi.responses import FileResponse
+    from fastapi.middleware.cors import CORSMiddleware
+    from basic_pitch.inference import predict_and_save
+    from basic_pitch import ICASSP_2022_MODEL_PATH
+    from fastapi.staticfiles import StaticFiles
+    log_info("All core modules imported successfully")
+except Exception as e:
+    import traceback
+    log_info(f"CRITICAL IMPORT ERROR: {str(e)}")
+    log_info(traceback.format_exc())
+    sys.exit(1)
 
 # Handle PyInstaller paths
 def get_resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
@@ -24,26 +48,12 @@ def get_resource_path(relative_path):
 
 # Correct model path for PyInstaller
 MODEL_PATH = get_resource_path("basic_pitch/model_output") if hasattr(sys, '_MEIPASS') else ICASSP_2022_MODEL_PATH
+log_info(f"Model Path: {MODEL_PATH}")
 
 app = FastAPI()
 
 # Folders configuration
-# These can be overridden by environment variables (set by Electron in production)
-UPLOAD_DIR = os.environ.get("NP_UPLOAD_DIR", "uploads")
 OUTPUT_DIR = os.environ.get("NP_OUTPUT_DIR", "outputs")
-
-# Setup startup log
-log_path = os.path.join(os.path.dirname(UPLOAD_DIR), "backend.log")
-def log_info(msg):
-    with open(log_path, "a") as f:
-        f.write(f"{msg}\n")
-    print(msg)
-
-log_info("--- Neural Pitch Backend Starting ---")
-log_info(f"Python version: {sys.version}")
-log_info(f"Executable: {sys.executable}")
-log_info(f"Uploads: {UPLOAD_DIR}")
-log_info(f"Outputs: {OUTPUT_DIR}")
 
 def clear_directory(directory):
     if os.path.exists(directory):
@@ -76,14 +86,12 @@ app.add_middleware(
 )
 
 async def delayed_delete(file_path: str, delay: int = 60):
-    """Deletes a file after a specified delay in seconds."""
     await asyncio.sleep(delay)
     if os.path.exists(file_path):
         try:
             os.remove(file_path)
-            print(f"Auto-cleanup: Removed {file_path}")
-        except Exception as e:
-            print(f"Auto-cleanup error: {e}")
+        except:
+            pass
 
 @app.get("/")
 def read_root():
@@ -97,12 +105,10 @@ async def predict(
     min_note_length: float = Form(58.0),
     midi_tempo: int = Form(0),
 ):
-    # Create unique filenames
     file_id = str(uuid.uuid4())
     input_filename = f"{file_id}_{file.filename}"
     input_path = os.path.join(UPLOAD_DIR, input_filename)
     
-    # Save uploaded file
     try:
         with open(input_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -113,7 +119,6 @@ async def predict(
     midi_path = None
 
     try:
-        # Auto-detect tempo if requested (0)
         final_tempo = midi_tempo
         if final_tempo <= 0:
             try:
@@ -126,18 +131,11 @@ async def predict(
                     tempo = tempo_arr[0]
                 else:
                     tempo = tempo_arr
-                
                 final_tempo = int(round(float(tempo)))
             except Exception as e:
-                print(f"Tempo detection failed: {e}")
                 bpm_error = str(e)
                 final_tempo = 120
 
-            if final_tempo < 40 or final_tempo > 250:
-                bpm_error = f"Tempo out of range: {final_tempo}"
-                final_tempo = 120
-
-        # Run prediction
         predict_and_save(
             audio_path_list=[input_path],
             output_directory=OUTPUT_DIR,
@@ -152,7 +150,6 @@ async def predict(
             midi_tempo=final_tempo
         )
         
-        # Determine the generated MIDI filename
         base_name = os.path.splitext(input_filename)[0]
         midi_filename = f"{base_name}_basic_pitch.mid"
         midi_path = os.path.join(OUTPUT_DIR, midi_filename)
@@ -160,7 +157,6 @@ async def predict(
         if not os.path.exists(midi_path):
              raise HTTPException(status_code=500, detail="MIDI generation failed")
              
-        # Return with header
         abs_path = os.path.abspath(midi_path)
         headers = {
             "X-Detected-Bpm": str(final_tempo),
@@ -182,14 +178,12 @@ async def predict(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
     finally:
-        # ALWAYS clean up input audio immediately
         if os.path.exists(input_path):
             try:
                 os.remove(input_path)
-                print(f"Immediate cleanup: Removed input {input_path}")
-            except Exception as e:
-                print(f"Input cleanup error: {e}")
+            except:
+                pass
 
 if __name__ == "__main__":
-    # Start the server
+    log_info("Starting uvicorn server on 127.0.0.1:8000")
     uvicorn.run(app, host="127.0.0.1", port=8000)
