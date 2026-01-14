@@ -57,6 +57,17 @@ except Exception as e:
     log_info(f"AI LOAD ERROR: {e}")
     log_info(traceback.format_exc())
 
+# Check FFmpeg availability for audio codec support
+try:
+    import subprocess
+    result = subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=3)
+    if result.returncode == 0:
+        log_info("FFmpeg detected - Extended audio format support enabled")
+    else:
+        log_info("FFmpeg not found - Some audio formats may not work (m4a, aac, etc)")
+except Exception as e:
+    log_info(f"FFmpeg check: {e} - Some audio formats may not work")
+
 # Handle PyInstaller paths
 def get_resource_path(relative_path):
     try:
@@ -65,17 +76,38 @@ def get_resource_path(relative_path):
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
-MODEL_PATH = get_resource_path(os.path.join("basic_pitch", "saved_models", "icassp_2022", "nmp")) if hasattr(sys, '_MEIPASS') else ICASSP_2022_MODEL_PATH
+# Determine model path based on environment
+if hasattr(sys, '_MEIPASS'):
+    # Running as PyInstaller bundle
+    MODEL_PATH = get_resource_path(os.path.join("basic_pitch", "saved_models", "icassp_2022", "nmp"))
+    log_info("Running in PyInstaller mode")
+else:
+    # Running in development mode
+    MODEL_PATH = ICASSP_2022_MODEL_PATH
+    log_info("Running in development mode")
 
 log_info(f"Targeting MODEL_PATH: {MODEL_PATH}")
+
+# Validate model exists and is readable
 if os.path.exists(MODEL_PATH):
     try:
         files = os.listdir(MODEL_PATH)
         log_info(f"Model Dir Content: {files}")
+        
+        # Check for required model files
+        required_files = ['saved_model.pb', 'variables']
+        missing_files = [f for f in required_files if f not in files]
+        if missing_files:
+            log_info(f"WARNING: Missing model files: {missing_files}")
+        else:
+            log_info("Model structure validated successfully")
+            
     except Exception as e:
         log_info(f"ERROR reading model dir: {e}")
+        log_info(traceback.format_exc())
 else:
-    log_info("CRITICAL: MODEL_PATH does not exist!")
+    log_info(f"CRITICAL: MODEL_PATH does not exist: {MODEL_PATH}")
+    log_info("The application may fail when processing audio files")
 
 # 3. APP DEFINITION
 app = FastAPI()
@@ -110,7 +142,7 @@ def read_root():
 @app.get("/health")
 def health_check():
     log_info("Health check received")
-    return {"status": "ok", "version": "1.1.7"}
+    return {"status": "ok", "version": "1.1.8"}
 
 @app.post("/predict")
 async def predict(

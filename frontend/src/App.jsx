@@ -88,6 +88,15 @@ function App() {
     setParams(newParams);
 
     if (selectedFile && status === 'success') {
+      // Stop the MIDI player before reprocessing
+      if (playerRef.current) {
+        try {
+          playerRef.current.stop();
+        } catch (e) {
+          console.warn("Error stopping player:", e);
+        }
+      }
+
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = setTimeout(() => processFile(selectedFile, newParams), 500);
     }
@@ -276,6 +285,15 @@ function App() {
                           <button
                             key={p.id}
                             onClick={() => {
+                              // Stop the MIDI player before applying preset
+                              if (playerRef.current) {
+                                try {
+                                  playerRef.current.stop();
+                                } catch (e) {
+                                  console.warn("Error stopping player:", e);
+                                }
+                              }
+
                               const newParams = { ...params, onsetThreshold: p.onset, frameThreshold: p.frame, minNoteLen: p.minLen };
                               setParams(newParams);
                               if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
